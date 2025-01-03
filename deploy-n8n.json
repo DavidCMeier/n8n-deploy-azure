@@ -1,0 +1,190 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "name": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 63,
+            "metadata": {
+                "description": "Name for the deployment. Must be between 5 and 63 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."
+            }
+        },
+        "acrName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Azure Container Registry (ACR) to pull images from."
+            }
+        },
+        "acrAdminUsername": {
+            "type": "string",
+            "metadata": {
+                "description": "Admin username for the ACR."
+            }
+        },
+        "acrAdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Admin password for the ACR."
+            }
+        },
+        "n8nUsername": {
+            "type": "string",
+            "metadata": {
+                "description": "Username for n8n basic authentication. This will be required to access n8n."
+            }
+        },
+        "n8nPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password for n8n basic authentication. This will be required to access n8n."
+            }
+        },
+        "timeZone": {
+            "type": "string",
+            "defaultValue": "Europe/Rome",
+            "metadata": {
+                "description": "Timezone for n8n (e.g., Europe/Rome)"
+            }
+        },
+        "fileShareQuotaGB": {
+            "type": "int",
+            "defaultValue": 10,
+            "minValue": 1,
+            "maxValue": 5120,
+            "metadata": {
+                "description": "Size in GB for the n8n data file share (default: 10GB)."
+            }
+        }
+    },
+    "variables": {
+        "fqdn": "[format('{0}.{1}.azurecontainer.io', parameters('name'), toLower(replace(resourceGroup().location, ' ', '')))]",
+        "storageAccountName": "[toLower(uniqueString(resourceGroup().id))]",
+        "fileShareName": "n8n-data"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2021-07-01",
+            "name": "[parameters('name')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "containers": [
+                    {
+                        "name": "[parameters('name')]",
+                        "properties": {
+                            "image": "[concat(parameters('acrName'), '.azurecr.io/n8nio/n8n')]",
+                            "resources": {
+                                "requests": {
+                                    "cpu": 0.5,
+                                    "memoryInGB": 0.7
+                                }
+                            },
+                            "environmentVariables": [
+                                {
+                                    "name": "GENERIC_TIMEZONE",
+                                    "value": "[parameters('timeZone')]"
+                                },
+                                {
+                                    "name": "TZ",
+                                    "value": "[parameters('timeZone')]"
+                                },
+                                {
+                                    "name": "N8N_BASIC_AUTH_ACTIVE",
+                                    "value": "true"
+                                },
+                                {
+                                    "name": "N8N_BASIC_AUTH_USER",
+                                    "value": "[parameters('n8nUsername')]"
+                                },
+                                {
+                                    "name": "N8N_BASIC_AUTH_PASSWORD",
+                                    "secureValue": "[parameters('n8nPassword')]"
+                                }
+                            ],
+                            "volumeMounts": [
+                                {
+                                    "name": "n8n-data",
+                                    "mountPath": "/home/node/.n8n"
+                                }
+                            ],
+                            "ports": [
+                                {
+                                    "port": 5678,
+                                    "protocol": "TCP"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "name": "caddy-ssl-server",
+                        "properties": {
+                            "image": "[concat(parameters('acrName'), '.azurecr.io/caddy:latest')]",
+                            "command": [
+                                "caddy",
+                                "reverse-proxy",
+                                "--from",
+                                "[variables('fqdn')]",
+                                "--to",
+                                "localhost:5678"
+                            ],
+                            "ports": [
+                                {
+                                    "port": 443,
+                                    "protocol": "TCP"
+                                },
+                                {
+                                    "port": 80,
+                                    "protocol": "TCP"
+                                }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "cpu": 0.5,
+                                    "memoryInGB": 0.5
+                                }
+                            }
+                        }
+                    }
+                ],
+                "restartPolicy": "OnFailure",
+                "osType": "Linux",
+                "ipAddress": {
+                    "type": "Public",
+                    "ports": [
+                        {
+                            "port": 443,
+                            "protocol": "TCP"
+                        },
+                        {
+                            "port": 80,
+                            "protocol": "TCP"
+                        },
+                        {
+                            "port": 5678,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "dnsNameLabel": "[parameters('name')]"
+                },
+                "imageRegistryCredentials": [
+                    {
+                        "server": "[concat(parameters('acrName'), '.azurecr.io')]",
+                        "username": "[parameters('acrAdminUsername')]",
+                        "password": "[parameters('acrAdminPassword')]"
+                    }
+                ],
+                "volumes": [
+                    {
+                        "name": "n8n-data",
+                        "azureFile": {
+                            "shareName": "[variables('fileShareName')]",
+                            "storageAccountName": "[variables('storageAccountName')]",
+                            "storageAccountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2019-06-01').keys[0].value]"
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
