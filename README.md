@@ -17,7 +17,7 @@ Esta plantilla ARM permite desplegar n8n en Azure Container Instances (ACI) con 
 
 ## Despliegue Rápido
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fdanilozito%2Fn8n-azure-deploy%2Fmain%2Fdeploy-n8n.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fdavidcmeier%2Fn8n-deploy-azure%2Fmain%2Fdeploy-n8n.json)
 
 ## Parámetros de Configuración
 
