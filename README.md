@@ -5,7 +5,13 @@ Esta plantilla ARM permite desplegar n8n en Azure Container Instances (ACI) con 
 ## Requisitos previos
 
 - **Cuenta de Azure** con una suscripción activa.
-
+- **Azure Container Registry** Crear un ACR y subir las siguientes imagenes de docker con los siguientes comandos: 
+```bash
+docker tag caddy:latest <nombre-del-registro>.azurecr.io/caddy:latest
+docker push <nombre-del-registro>.azurecr.io/caddy:latest
+docker tag n8nio/n8n:latest <nombre-del-registro>.azurecr.io/n8nio/n8n:latest
+docker push <nombre-del-registro>.azurecr.io/n8nio/n8n:latest
+```
 ## Componentes del Despliegue
 
 - **n8n**: Contenedor principal que ejecuta la aplicación n8n.
